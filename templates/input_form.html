@@ -1,122 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Battery Passport Console</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* Custom "Industrial" Styling */
-        body { background-color: #212529; color: white; }
-        .card { border: none; border-radius: 15px; }
-        .form-control, .form-select {
-            background-color: #f8f9fa;
-            border: 2px solid #dee2e6;
-            padding: 15px; /* Bigger touch target */
-            font-size: 1.1rem; /* Bigger text */
-            border-radius: 10px;
-        }
-        .form-control:focus {
-            border-color: #0d6efd;
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        label {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #495057;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.5px;
-        }
-        .section-title {
-            border-bottom: 2px solid #0d6efd;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            color: #0d6efd;
-            font-weight: bold;
-        }
-        .btn-generate {
-            padding: 15px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        body { background: #1a1a1a; color: #fff; font-family: 'Inter', sans-serif; }
+        .card { border-radius: 15px; border: none; }
+        .mode-toggle { background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 12px; }
+        .mode-active { border-color: #0d6efd; background: #f0f7ff; }
+        input:disabled { background-color: #e9ecef !important; cursor: not-allowed; }
     </style>
 </head>
 <body>
-    <div class="container mt-5 mb-5">
+    <div class="container py-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
-                <div class="card shadow-lg">
-                    <div class="card-header bg-primary text-white p-4 text-center">
-                        <h2 class="mb-0">🏭 Industrial Battery Passport</h2>
-                        <small>Compliance Engine v1.0</small>
+                <div class="card bg-white text-dark shadow-lg">
+                    <div class="card-header bg-primary text-white py-4 text-center">
+                        <h3 class="mb-0">🔌 Battery Compliance Console</h3>
                     </div>
-                    
-                    <div class="card-body bg-white text-dark p-5">
-                        <form action="/generate" method="post">
+                    <div class="card-body p-5">
+                        <form action="/generate" method="post" id="passportForm">
                             
-                            <h5 class="section-title">1. Compliance Data (Mandatory)</h5>
+                            <h6 class="text-primary fw-bold mb-3 uppercase">1. Company Registry</h6>
                             <div class="row mb-4">
-                                <div class="col-md-6 mb-3">
-                                    <label>EPR Registration Number</label>
-                                    <input type="text" name="epr_number" class="form-control" placeholder="e.g. BWM/PRO/2026/..." required>
+                                <div class="col-md-6 mb-3"><label class="form-label">EPR No.</label><input type="text" name="epr_number" class="form-control" required></div>
+                                <div class="col-md-6 mb-3"><label class="form-label">Manufacturer Name</label><input type="text" name="producer_name" class="form-control" required></div>
+                            </div>
+
+                            <div class="mode-toggle mb-4 p-4" id="modeContainer">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Activate Production Batch?</h6>
+                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="enableProduction" style="width: 2.5em; height: 1.2em;"></div>
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label>Manufacturer Name</label>
-                                    <input type="text" name="producer_name" class="form-control" placeholder="e.g. TechVolts India Pvt Ltd" required>
+                                <div class="row">
+                                    <div class="col-md-4"><label class="form-label small">Quantity</label><input type="number" name="batch_size" id="batchSize" class="form-control" value="1" disabled required></div>
+                                    <div class="col-md-4 text-center"><label class="form-label small d-block">Unique IDs?</label><input class="form-check-input mt-2" type="checkbox" name="is_unique" id="uniqueToggle" disabled></div>
+                                    <div class="col-md-4"><label class="form-label small">Brand/Model</label><input type="text" name="brand_name" id="brandName" class="form-control" disabled required></div>
                                 </div>
                             </div>
 
-                            <h5 class="section-title">2. Product Specifications</h5>
+                            <h6 class="text-primary fw-bold mb-3 uppercase">2. Engineering Data</h6>
                             <div class="row mb-4">
-                                <div class="col-md-6 mb-3">
-                                    <label>Brand / Model Name</label>
-                                    <input type="text" name="brand_name" class="form-control" placeholder="e.g. PowerMax 500" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label>Battery Category</label>
-                                    <select name="battery_type" class="form-select">
-                                        <option value="L5-M (E-Rickshaw)">🛺 E-Rickshaw (L5-M)</option>
-                                        <option value="L-Category (2-Wheeler)">🛵 2-Wheeler (L-Category)</option>
-                                        <option value="Portable (Mobile/Laptop)">📱 Portable (Mobile/Laptop)</option>
-                                        <option value="Industrial (UPS/Solar)">☀️ Industrial (UPS/Solar)</option>
-                                    </select>
-                                </div>
+                                <div class="col-md-6 mb-3"><label class="form-label">Chemistry</label><input type="text" name="chemistry" class="form-control" required></div>
+                                <div class="col-md-6 mb-3"><label class="form-label">Category</label><select name="battery_type" class="form-select"><option>EV Battery</option><option>Industrial UPS</option></select></div>
+                                <div class="col-md-4"><label class="form-label">Volts</label><input type="number" step="0.1" name="voltage" class="form-control" required></div>
+                                <div class="col-md-4"><label class="form-label">Capacity (Ah)</label><input type="number" step="0.1" name="capacity" class="form-control" required></div>
+                                <div class="col-md-4"><label class="form-label">Weight (kg)</label><input type="number" step="0.01" name="weight" class="form-control" required></div>
                             </div>
 
-                            <div class="row mb-3">
-                                <div class="col-md-6 mb-3">
-                                    <label>Chemistry</label>
-                                    <input type="text" name="chemistry" class="form-control" placeholder="e.g. Li-Ion NMC" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label>Weight (kg)</label>
-                                    <input type="number" step="0.01" name="weight" class="form-control" placeholder="e.g. 12.5" required>
-                                </div>
-                            </div>
-
-                            <div class="row mb-4">
-                                <div class="col-md-6 mb-3">
-                                    <label>Nominal Voltage (V)</label>
-                                    <input type="number" step="0.1" name="voltage" class="form-control" placeholder="e.g. 48.0" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label>Rated Capacity (Ah)</label>
-                                    <input type="number" step="0.1" name="capacity" class="form-control" placeholder="e.g. 100.0" required>
-                                </div>
-                            </div>
-
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-success btn-generate shadow">
-                                    🖨️ Generate & Print Label
-                                </button>
-                            </div>
-
+                            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow">🚀 GENERATE COMPLIANCE LABELS</button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <script>
+        const toggle = document.getElementById('enableProduction');
+        const batch = document.getElementById('batchSize');
+        const unique = document.getElementById('uniqueToggle');
+        const brand = document.getElementById('brandName');
+        const box = document.getElementById('modeContainer');
+        const form = document.getElementById('passportForm');
+
+        toggle.addEventListener('change', function() {
+            const state = !this.checked;
+            batch.disabled = unique.disabled = brand.disabled = state;
+            if(!this.checked) { batch.value = 1; brand.value = ""; unique.checked = false; box.classList.remove('mode-active'); }
+            else { box.classList.add('mode-active'); }
+        });
+
+        // CRITICAL FIX: Unlock fields so values are actually SENT to Python
+        form.addEventListener('submit', function() {
+            batch.disabled = false;
+            unique.disabled = false;
+            brand.disabled = false;
+            if(!brand.value) { brand.value = "STANDARD-BATCH"; }
+        });
+    </script>
 </body>
 </html>

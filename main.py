@@ -3,8 +3,8 @@ import qrcode
 import sqlite3
 from uuid import uuid4
 from datetime import datetime
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, Form, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from reportlab.pdfgen import canvas
@@ -14,22 +14,21 @@ from reportlab.graphics.shapes import Drawing
 
 app = FastAPI()
 
-# --- CONFIGURATION ---
-DOMAIN = "http://10.69.199.1:8000"  # REPLACE with your Cloud URL later
-LABEL_SIZE = (50 * mm, 50 * mm)     # Standard 50x50mm Industrial Label
+# --- CONFIGURATION: UPDATE IP EVERY TIME YOU CHANGE WIFI ---
+# Run 'ipconfig getifaddr en0' in terminal
+DOMAIN = "http://10.69.199.1:8000" 
+LABEL_SIZE = (50 * mm, 50 * mm)
 
-# Setup Folders
 os.makedirs("static/qr_codes", exist_ok=True)
-os.makedirs("static/labels", exist_ok=True) # New folder for PDFs
+os.makedirs("static/labels", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# --- DATABASE (Enhanced Schema) ---
 def init_db():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
-    # Added Global Standard Fields: capacity, voltage, cycle_life
-    c.execute('''CREATE TABLE IF NOT EXISTS batteries
+    c.execute('DROP TABLE IF EXISTS batteries')
+    c.execute('''CREATE TABLE batteries
                  (id TEXT PRIMARY KEY, 
                   producer_name TEXT, 
                   epr_number TEXT, 
@@ -39,47 +38,30 @@ def init_db():
                   capacity_ah REAL,
                   voltage_v REAL,
                   weight_kg REAL,
+                  batch_size INTEGER,
                   mfg_date TEXT)''')
     conn.commit()
     conn.close()
 
 init_db()
 
-# --- HELPER: Industrial PDF Generator ---
-def generate_thermal_label(batch_id, epr_no, brand, url):
-    filename = f"static/labels/{batch_id}.pdf"
-    c = canvas.Canvas(filename, pagesize=LABEL_SIZE)
-    
-    # 1. Draw QR Code
+def draw_label(c, unit_id, epr_no, brand, url):
     qr_code = qr.QrCodeWidget(url)
     qr_code.barWidth = 33 * mm
     qr_code.barHeight = 33 * mm
-    qr_code.qrVersion = 1
     d = Drawing(33 * mm, 33 * mm)
     d.add(qr_code)
-    # Position QR code (Centered, Top)
     from reportlab.graphics import renderPDF
     renderPDF.draw(d, c, 8 * mm, 15 * mm)
-
-    # 2. Draw Text (Thermal Printer Optimized Font)
     c.setFont("Helvetica-Bold", 6)
     c.drawCentredString(25 * mm, 12 * mm, f"BRAND: {brand.upper()}")
     c.setFont("Helvetica", 5)
     c.drawCentredString(25 * mm, 9 * mm, f"EPR: {epr_no}")
-    c.drawCentredString(25 * mm, 6 * mm, f"ID: {batch_id[:8]}")
-    
-    # 3. Draw Mandatory "Wheelie Bin" (Simplified as X-Box for Demo)
-    # In production, use an actual image: c.drawImage("bin.png", ...)
+    c.drawCentredString(25 * mm, 6 * mm, f"UID: {unit_id}")
+    # Compliance Symbols
     c.rect(42*mm, 2*mm, 6*mm, 6*mm)
     c.line(42*mm, 2*mm, 48*mm, 8*mm)
     c.line(42*mm, 8*mm, 48*mm, 2*mm)
-    c.setFont("Helvetica", 4)
-    c.drawString(42*mm, 1*mm, "Do Not Bin")
-
-    c.save()
-    return filename
-
-# --- ROUTES ---
 
 @app.get("/", response_class=HTMLResponse)
 async def read_form(request: Request):
@@ -90,67 +72,65 @@ async def generate_passport(
     request: Request,
     producer_name: str = Form(...),
     epr_number: str = Form(...),
-    brand_name: str = Form(...),
+    brand_name: str = Form("BATCH-PRODUCT"),
     battery_type: str = Form(...),
     chemistry: str = Form(...),
-    capacity: float = Form(...),  # New Field
-    voltage: float = Form(...),   # New Field
-    weight: float = Form(...)
+    capacity: float = Form(...),
+    voltage: float = Form(...),
+    weight: float = Form(...),
+    batch_size: int = Form(1),
+    is_unique: bool = Form(False)
 ):
-    batch_id = str(uuid4())
-    mfg_date = datetime.now().strftime("%Y-%m-%d")
+    master_batch_id = str(uuid4())[:12]
+    mfg_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pdf_path = f"static/labels/{master_batch_id}.pdf"
+    c = canvas.Canvas(pdf_path, pagesize=LABEL_SIZE)
 
-    # 1. Save Data
     conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO batteries VALUES (?,?,?,?,?,?,?,?,?,?)",
-              (batch_id, producer_name, epr_number, battery_type, brand_name, chemistry, capacity, voltage, weight, mfg_date))
+    db = conn.cursor()
+
+    if is_unique:
+        for i in range(batch_size):
+            u_id = f"{master_batch_id}-U{i+1}"
+            u_url = f"{DOMAIN}/verify/{u_id}"
+            db.execute("INSERT INTO batteries VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      (u_id, producer_name, epr_number, battery_type, brand_name, chemistry, capacity, voltage, weight, 1, mfg_date))
+            draw_label(c, u_id, epr_number, brand_name, u_url)
+            c.showPage()
+    else:
+        u_url = f"{DOMAIN}/verify/{master_batch_id}"
+        db.execute("INSERT INTO batteries VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  (master_batch_id, producer_name, epr_number, battery_type, brand_name, chemistry, capacity, voltage, weight, batch_size, mfg_date))
+        draw_label(c, master_batch_id, epr_number, brand_name, u_url)
+        c.showPage()
+
+    c.save()
     conn.commit()
     conn.close()
 
-    # 2. Generate Assets
-    passport_url = f"{DOMAIN}/verify/{batch_id}"
-    pdf_path = generate_thermal_label(batch_id, epr_number, brand_name, passport_url)
-    
-    # Generate PNG for Web Preview (using old method for screen)
-    qr_img = qrcode.make(passport_url)
-    qr_png_path = f"static/qr_codes/{batch_id}.png"
-    qr_img.save(qr_png_path)
+    preview_id = f"{master_batch_id}-U1" if is_unique else master_batch_id
+    qr_preview = qrcode.make(f"{DOMAIN}/verify/{preview_id}")
+    qr_preview.save(f"static/qr_codes/{master_batch_id}.png")
 
     return templates.TemplateResponse("passport.html", {
         "request": request,
-        "data": {
-            "id": batch_id,
-            "epr": epr_number,
-            "name": brand_name,
-            "pdf_link": f"/{pdf_path}",
-            "qr_png": f"/{qr_png_path}",
-            "is_preview": True
-        }
+        "data": {"id": master_batch_id, "epr": epr_number, "name": brand_name, "size": batch_size,
+                "pdf_link": f"/{pdf_path}", "qr_png": f"/static/qr_codes/{master_batch_id}.png",
+                "is_preview": True, "mode": "Unique" if is_unique else "Batch"}
     })
 
-@app.get("/verify/{batch_id}", response_class=HTMLResponse)
-async def verify_battery(request: Request, batch_id: str):
+@app.get("/verify/{battery_id}", response_class=HTMLResponse)
+async def verify_battery(request: Request, battery_id: str):
     conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM batteries WHERE id=?", (batch_id,))
-    row = c.fetchone()
+    db = conn.cursor()
+    db.execute("SELECT * FROM batteries WHERE id = ?", (battery_id,))
+    row = db.fetchone()
     conn.close()
 
     if row:
-        data = {
-            "id": row[0],
-            "producer": row[1],
-            "epr": row[2],
-            "type": row[3],
-            "brand": row[4],
-            "chemistry": row[5],
-            "capacity": row[6],
-            "voltage": row[7],
-            "weight": row[8],
-            "date": row[9],
-            "is_preview": False
-        }
+        data = {"id": row[0], "producer": row[1], "epr": row[2], "type": row[3],
+                "brand": row[4], "chemistry": row[5], "capacity": row[6],
+                "voltage": row[7], "weight": row[8], "size": row[9], "date": row[10], "is_preview": False}
         return templates.TemplateResponse("passport.html", {"request": request, "data": data})
     else:
-        return HTMLResponse(content="<h1>⚠️ Warning: Counterfeit Battery Detected</h1>", status_code=404)
+        return HTMLResponse(content=f"<h1>ID {battery_id} Not Found</h1>", status_code=404)

@@ -1,66 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Digital Product Passport</title>
+    <title>Battery Passport</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .passport-card { max-width: 400px; margin: 20px auto; border-radius: 15px; border: 1px solid #ddd; }
-        .status-header { background: #28a745; color: white; padding: 15px; border-radius: 15px 15px 0 0; text-align: center; }
-        .data-row { display: flex; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid #eee; }
-        .data-label { color: #666; font-size: 0.9em; }
-        .data-value { font-weight: bold; }
+        .verified-header { background: #28a745; color: white; border-radius: 15px 15px 0 0; padding: 25px; }
+        .data-point { border-bottom: 1px solid #eee; padding: 10px 0; }
+        .label { color: #888; font-size: 0.75rem; text-transform: uppercase; }
+        .val { font-weight: 700; color: #333; float: right; }
     </style>
 </head>
 <body class="bg-light">
 
 {% if data.is_preview %}
-    <div class="container text-center mt-5">
-        <h2>✅ Batch Generated Successfully</h2>
-        <div class="card p-4 d-inline-block shadow">
-            <img src="{{ data.qr_png }}" width="150"><br>
-            <p class="mt-2 text-muted">{{ data.id }}</p>
-            <a href="{{ data.pdf_link }}" class="btn btn-primary btn-lg mt-3">⬇️ Download Thermal Label (PDF)</a>
-            <p class="small text-muted mt-2">Format: 50x50mm PDF (Ready for Zebra Printers)</p>
+    <div class="container py-5 text-center">
+        <div class="card shadow-lg p-5 d-inline-block border-0">
+            <h2 class="text-primary mb-3">✅ {{ data.mode }} Mode Active</h2>
+            <img src="{{ data.qr_png }}" width="180" class="mb-4">
+            <div class="alert alert-secondary mb-4">EPR Number: {{ data.epr }}</div>
+            <a href="{{ data.pdf_link }}" class="btn btn-success btn-lg w-100 shadow" download>⬇️ DOWNLOAD PRINTABLE LABELS</a>
         </div>
     </div>
-
 {% else %}
-    <div class="card passport-card shadow">
-        <div class="status-header">
-            <h1>✅ Verified</h1>
-            <p class="mb-0">Compliant with Battery Waste Rules 2025</p>
-        </div>
-        <div class="card-body p-0">
-            <div class="data-row">
-                <span class="data-label">Manufacturer</span>
-                <span class="data-value">{{ data.producer }}</span>
+    <div class="container py-4">
+        <div class="card shadow-lg border-0 mx-auto" style="max-width: 450px; border-radius: 15px;">
+            <div class="verified-header text-center">
+                <h4>🛡️ AUTHENTIC PRODUCT</h4>
+                <small>Global Compliance Verified</small>
             </div>
-            <div class="data-row">
-                <span class="data-label">EPR Number</span>
-                <span class="data-value text-primary">{{ data.epr }}</span>
+            <div class="card-body px-4">
+                <div class="data-point"><span class="label">Brand</span><span class="val">{{ data.brand }}</span></div>
+                <div class="data-point"><span class="label">Manufacturer</span><span class="val">{{ data.producer }}</span></div>
+                <div class="data-point"><span class="label">EPR Registration</span><span class="val">{{ data.epr }}</span></div>
+                <div class="data-point"><span class="label">Specs</span><span class="val">{{ data.voltage }}V / {{ data.capacity }}Ah</span></div>
+                <div class="data-point"><span class="label">MFG Date</span><span class="val">{{ data.date }}</span></div>
+                <div class="data-point border-0 text-center mt-3"><small class="text-muted">UID: {{ data.id }}</small></div>
             </div>
-            <div class="data-row">
-                <span class="data-label">Chemistry</span>
-                <span class="data-value">{{ data.chemistry }}</span>
-            </div>
-            <div class="data-row">
-                <span class="data-label">Specs</span>
-                <span class="data-value">{{ data.voltage }}V / {{ data.capacity }}Ah</span>
-            </div>
-            <div class="data-row">
-                <span class="data-label">Weight</span>
-                <span class="data-value">{{ data.weight }} kg</span>
-            </div>
-            <div class="data-row" style="border:none;">
-                <span class="data-label">Mfg Date</span>
-                <span class="data-value">{{ data.date }}</span>
-            </div>
-        </div>
-        <div class="card-footer text-center text-muted small">
-            ♻️ Please recycle responsibly. Do not dispose in trash.
         </div>
     </div>
 {% endif %}
-
 </body>
 </html>
