@@ -16,7 +16,7 @@ app = FastAPI()
 
 # --- CONFIGURATION: UPDATE IP EVERY TIME YOU CHANGE WIFI ---
 # Run 'ipconfig getifaddr en0' in terminal
-DOMAIN = "http://10.69.199.1:8000" 
+DOMAIN = "https://battery-passport-s1ty.onrender.com" 
 LABEL_SIZE = (50 * mm, 50 * mm)
 
 os.makedirs("static/qr_codes", exist_ok=True)
